@@ -1,33 +1,41 @@
 import { createClient } from 'redis';
+import * as dotenv from 'dotenv';
+import { checkMissions } from './missionService';
 
-// Initialize Redis client
+// Load environment variables from .env file
+dotenv.config();
+
+// Initialize Redis client 
+// IMPORTANT: make sure to add a .env file with your REDIS_HOST, REDIS_PORT, and REDIS_PASSWORD
 const client = createClient({
-    password: 'HAno0JojYwVylERd5ujqSxcsCtEm6p3e',
+    password: process.env.REDIS_PASSWORD as string,
     socket: {
-        host: 'redis-13374.c244.us-east-1-2.ec2.redns.redis-cloud.com',
-        port: 13374
+        host: process.env.REDIS_HOST as string,
+        port: parseInt(process.env.REDIS_PORT as string, 10)
     }
 });
 
 client.connect();
 
-// Constants for default spins
+// Constants for default spins and points, can change these values
 const MEMBER_DEFAULT_SPINS = 50;
-const NON_MEMBER_DEFAULT_SPINS = 20;
-const DAILY_SPINS = 10;
+const NON_MEMBER_DEFAULT_SPINS = 1;
+const DEFAULT_POINTS = 100;
 
 // Initialize a new user with spins based on whether they are a member
 async function initializeNewUser(userId: string, isPaidMember: boolean, points? : number) {
     const spins = isPaidMember ? MEMBER_DEFAULT_SPINS : NON_MEMBER_DEFAULT_SPINS;
-    const userPoints = points !== undefined ? points : 0; // Set points to 0 if not provided
+    const userPoints = points !== undefined ? points : DEFAULT_POINTS;
 
     await client.set(`player:${userId}:spins`, spins.toString());
     await client.set(`player:${userId}:coins`, '0');
     await client.set(`player:${userId}:points`, userPoints.toString());
-    await client.set(`player:${userId}:missionIndex`, '0');
+    await client.set(`player:${userId}:missionIndex`, '1');
     await client.set(`player:${userId}:isPaidMember`, isPaidMember.toString());
-    await client.set(`player:${userId}:lastDailySpin`, '0');  // Initialize last daily spin to 0
     console.log(`User ${userId} initialized with ${spins} spins and ${userPoints} points.`);
+
+    // Give user their starting rewards
+    await checkMissions(userId);
 }
 
 // Get current spins for a user
@@ -78,22 +86,23 @@ async function updateUserPoints(userId: string, updateVal: number) {
     console.log(`User ${userId}'s points updated to ${points}.`);
 }
 
-// Grant daily spins if more than 24 hours have passed since the last daily spin
-async function grantDailySpins(userId: string) {
-    const lastGranted = await client.get(`player:${userId}:lastDailySpin`);
-    const now = Date.now();
+// Update mission index for a user
+async function updateMissionIndex(userId: string, maxIndex: number, repeatedIndex: number) {
+    const currentIndex = await getMissionIndex(userId);
+    const index = currentIndex < maxIndex ? currentIndex + 1 : repeatedIndex;
+    await client.set(`player:${userId}:missionIndex`, index.toString());
+    console.log(`User ${userId}'s mission index updated to ${index}.`);
+}
 
-    // If lastGranted is '0' or more than 24 hours have passed, grant daily spins
-    if (!lastGranted || now - parseInt(lastGranted, 10) >= 24 * 60 * 60 * 1000) {
-        const currentSpins = await getUserSpins(userId);
-        const newSpins = currentSpins + DAILY_SPINS;
-
-        await client.set(`player:${userId}:spins`, newSpins.toString());
-        await client.set(`player:${userId}:lastDailySpin`, now.toString());
-
-        console.log(`Granted ${DAILY_SPINS} daily spins to user ${userId}.`);
-    } else {
-        console.log(`User ${userId} has already received their daily spins.`);
+// Clear the current Redis database
+async function clearCurrentDatabase() {
+    try {
+        await client.flushDb();
+        console.log('Current Redis database cleared.');
+    } catch (error) {
+        console.error('Error clearing the database:', error);
+    } finally {
+        client.disconnect();
     }
 }
 
@@ -105,5 +114,7 @@ export {
     updateUserSpins,
     updateUserCoins,
     updateUserPoints,
-    grantDailySpins
+    updateMissionIndex,
+    getMissionIndex,
+    clearCurrentDatabase
 };

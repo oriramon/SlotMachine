@@ -14,3 +14,5 @@ dist/
 .DS_Store   # macOS
 Thumbs.db   # Windows
 
+# Ignore .env file
+.env
