@@ -5,7 +5,8 @@ This is an interactive Slot Machine game built  with TypeScript, that uses Redis
 
 ## Key Features
 - Interactive command line interface
-- Player can choose to become members, affecting their starting spin count
+- Player can choose to become members, affecting their starting spin count.
+- To add interest I manipulated the likely of getting 3 in a row to roughly 10%. This can be removed or changed.
 - Redis is used to store player information including spins, coins, points, mission index, and member status
 - Completed missions provide additional spins and/or coins as rewards
 - The game runs until a player runs out of spins or decideds to stop
@@ -21,6 +22,7 @@ This is an interactive Slot Machine game built  with TypeScript, that uses Redis
     - npm install
 
 4. Set up your environment variables. IMPORTANT so that Redis works. If instead you prefer to have access to my Redis host, contact me.
+    
     - touch .env
         - REDIS_HOST = your redis host
         - REDIS_PORT = your redis port
@@ -31,6 +33,8 @@ This is an interactive Slot Machine game built  with TypeScript, that uses Redis
 
 6. Start the game:
     - node dist/interactiveGame.js
+
+7. Goals and rewards are configurable through the mission.json file
 
 
 
